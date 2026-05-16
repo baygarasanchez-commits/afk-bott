@@ -17,17 +17,22 @@ client.on('ready', () => {
 client.on('messageCreate', message => {
   if (message.author.bot) return;
 
+  // AFK kaldırma
   if (afkUsers.has(message.author.id)) {
     afkUsers.delete(message.author.id);
     message.reply('AFK kaldırıldı.');
   }
 
+  // Etiketlenen kişi AFK mı
   message.mentions.users.forEach(user => {
     if (afkUsers.has(user.id)) {
-      message.reply(`${user.username} AFK: ${afkUsers.get(user.id)}`);
+      message.reply(
+        `${user.username} AFK: ${afkUsers.get(user.id)}`
+      );
     }
   });
 
+  // AFK komutu
   if (message.content.startsWith('!afk')) {
     const reason =
       message.content.split(' ').slice(1).join(' ') || 'Sebep yok';
