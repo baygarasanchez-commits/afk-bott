@@ -1,5 +1,4 @@
 const { Client, GatewayIntentBits } = require('discord.js');
-require('dotenv').config();
 
 const client = new Client({
   intents: [
@@ -25,9 +24,7 @@ client.on('messageCreate', message => {
 
   message.mentions.users.forEach(user => {
     if (afkUsers.has(user.id)) {
-      message.reply(
-        `${user.username} AFK: ${afkUsers.get(user.id)}`
-      );
+      message.reply(`${user.username} AFK: ${afkUsers.get(user.id)}`);
     }
   });
 
@@ -41,4 +38,4 @@ client.on('messageCreate', message => {
   }
 });
 
-client.login(process.env.MTQ4NDY3MjIzNTE2NzAyMzI4Ng.GR85zh.MnA7hjSdEqwZHyX7VoEE7K29yCzCzXEWa2PQsk);
+client.login(process.env.BOT_TOKEN);
