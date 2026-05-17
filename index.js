@@ -17,27 +17,24 @@ const client = new Client({
   ]
 });
 
+let connection;
+
 client.once("ready", async () => {
   console.log(`${client.user.tag} aktif!`);
 
-  const guild = client.guilds.cache.get(process.env.GUILD_ID);
-
-  if (!guild) {
-    return console.log("Sunucu bulunamadı!");
-  }
-
-  const channel = guild.channels.cache.get(process.env.VOICE_CHANNEL_ID);
-
-  if (!channel) {
-    return console.log("Ses kanalı bulunamadı!");
-  }
-
-  if (channel.type !== ChannelType.GuildVoice) {
-    return console.log("Bu bir ses kanalı değil!");
-  }
-
   try {
-    const connection = joinVoiceChannel({
+    // CACHE yerine FETCH (deploy için kritik)
+    const guild = await client.guilds.fetch(process.env.GUILD_ID);
+    if (!guild) return console.log("Sunucu bulunamadı!");
+
+    const channel = await guild.channels.fetch(process.env.VOICE_CHANNEL_ID);
+    if (!channel) return console.log("Ses kanalı bulunamadı!");
+
+    if (channel.type !== ChannelType.GuildVoice) {
+      return console.log("Bu bir ses kanalı değil!");
+    }
+
+    connection = joinVoiceChannel({
       channelId: channel.id,
       guildId: guild.id,
       adapterCreator: guild.voiceAdapterCreator,
@@ -45,13 +42,37 @@ client.once("ready", async () => {
       selfMute: false
     });
 
-    await entersState(connection, VoiceConnectionStatus.Ready, 30000);
+    console.log("Voice join denendi");
 
-    console.log(`Bağlandı: ${channel.name}`);
+    // ⚠️ BOTU KİLİTLEMEZ, SADECE DENER
+    entersState(connection, VoiceConnectionStatus.Ready, 15000)
+      .then(() => console.log("Voice READY"))
+      .catch((err) => {
+        console.log("Voice READY olmadı:", err.message);
+      });
+
+    connection.on("stateChange", (oldState, newState) => {
+      console.log(`Voice state: ${oldState.status} -> ${newState.status}`);
+    });
 
   } catch (err) {
-    console.error(err);
+    console.error("Ready error:", err);
   }
+});
+
+// Güvenlik (deploy crash fix)
+process.on("unhandledRejection", (err) => {
+  console.error("Unhandled Rejection:", err);
+});
+
+process.on("SIGINT", () => {
+  if (connection) connection.destroy();
+  process.exit(0);
+});
+
+process.on("SIGTERM", () => {
+  if (connection) connection.destroy();
+  process.exit(0);
 });
 
 client.login(process.env.BOT_TOKEN);
