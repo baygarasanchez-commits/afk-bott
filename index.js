@@ -1,45 +1,56 @@
-const { Client, GatewayIntentBits } = require('discord.js');
+const {
+  Client,
+  GatewayIntentBits,
+  ChannelType
+} = require("discord.js");
+
+const {
+  joinVoiceChannel,
+  entersState,
+  VoiceConnectionStatus
+} = require("@discordjs/voice");
 
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
-    GatewayIntentBits.GuildMessages,
-    GatewayIntentBits.MessageContent
+    GatewayIntentBits.GuildVoiceStates
   ]
 });
 
-const afkUsers = new Map();
-
-client.on('ready', () => {
+client.once("ready", async () => {
   console.log(`${client.user.tag} aktif!`);
-});
 
-client.on('messageCreate', message => {
-  if (message.author.bot) return;
+  const guild = client.guilds.cache.get(process.env.GUILD_ID);
 
-  // AFK kaldırma
-  if (afkUsers.has(message.author.id)) {
-    afkUsers.delete(message.author.id);
-    message.reply('AFK kaldırıldı.');
+  if (!guild) {
+    return console.log("Sunucu bulunamadı!");
   }
 
-  // Etiketlenen kişi AFK mı
-  message.mentions.users.forEach(user => {
-    if (afkUsers.has(user.id)) {
-      message.reply(
-        `${user.username} AFK: ${afkUsers.get(user.id)}`
-      );
-    }
-  });
+  const channel = guild.channels.cache.get(process.env.VOICE_CHANNEL_ID);
 
-  // AFK komutu
-  if (message.content.startsWith('!afk')) {
-    const reason =
-      message.content.split(' ').slice(1).join(' ') || 'Sebep yok';
+  if (!channel) {
+    return console.log("Ses kanalı bulunamadı!");
+  }
 
-    afkUsers.set(message.author.id, reason);
+  if (channel.type !== ChannelType.GuildVoice) {
+    return console.log("Bu bir ses kanalı değil!");
+  }
 
-    message.reply(`AFK oldun: ${reason}`);
+  try {
+    const connection = joinVoiceChannel({
+      channelId: channel.id,
+      guildId: guild.id,
+      adapterCreator: guild.voiceAdapterCreator,
+      selfDeaf: true,
+      selfMute: false
+    });
+
+    await entersState(connection, VoiceConnectionStatus.Ready, 30000);
+
+    console.log(`Bağlandı: ${channel.name}`);
+
+  } catch (err) {
+    console.error(err);
   }
 });
 
