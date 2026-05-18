@@ -1,13 +1,13 @@
 {
-  "name": "discord-afk-voice-bot",
+  "name": "afk-bot",
   "version": "1.0.0",
-  "private": true,
   "main": "index.js",
   "scripts": {
     "start": "node index.js"
   },
   "dependencies": {
-    "@discordjs/voice": "^0.18.0",
-    "discord.js": "^14.15.3"
+    "discord.js": "^14.15.3",
+    "@discordjs/voice": "^0.17.0",
+    "express": "^4.19.2"
   }
 }
