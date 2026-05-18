@@ -1,103 +1,80 @@
+const express = require("express");
 const {
-  Client,
-  GatewayIntentBits,
-  ChannelType
+    Client,
+    GatewayIntentBits
 } = require("discord.js");
 
 const {
-  joinVoiceChannel,
-  entersState,
-  VoiceConnectionStatus,
-  getVoiceConnection
+    joinVoiceChannel,
+    entersState,
+    VoiceConnectionStatus
 } = require("@discordjs/voice");
 
+const app = express();
+
+/*
+RENDER TIMEOUT FIX
+*/
+app.get("/", (req, res) => {
+    res.send("Bot aktif");
+});
+
+app.listen(process.env.PORT || 3000, () => {
+    console.log("Web server aktif");
+});
+
+/*
+DISCORD CLIENT
+*/
 const client = new Client({
-  intents: [
-    GatewayIntentBits.Guilds,
-    GatewayIntentBits.GuildVoiceStates
-  ]
+    intents: [
+        GatewayIntentBits.Guilds,
+        GatewayIntentBits.GuildVoiceStates
+    ]
 });
 
-let connection;
-let reconnectInterval;
+/*
+ANTI CRASH
+*/
+process.on("unhandledRejection", console.error);
+process.on("uncaughtException", console.error);
+process.on("uncaughtExceptionMonitor", console.error);
 
-async function connectToVoice() {
-  try {
-    const guild = await client.guilds.fetch(process.env.GUILD_ID);
-    const channel = await guild.channels.fetch(process.env.VOICE_CHANNEL_ID);
-
-    if (!channel || channel.type !== ChannelType.GuildVoice) {
-      return console.log("Geçersiz voice channel");
-    }
-
-    // varsa eski connection temizle
-    const existing = getVoiceConnection(guild.id);
-    if (existing) existing.destroy();
-
-    connection = joinVoiceChannel({
-      channelId: channel.id,
-      guildId: guild.id,
-      adapterCreator: guild.voiceAdapterCreator,
-      selfDeaf: true,
-      selfMute: false
-    });
-
-    console.log("Voice bağlanma denendi");
-
-    entersState(connection, VoiceConnectionStatus.Ready, 15000)
-      .then(() => console.log("Voice READY"))
-      .catch((err) => console.log("Voice READY timeout:", err.message));
-
-    // STATE MONITOR
-    connection.on("stateChange", (oldState, newState) => {
-      console.log(`Voice: ${oldState.status} -> ${newState.status}`);
-
-      // Eğer disconnected olursa tekrar bağlan
-      if (newState.status === VoiceConnectionStatus.Disconnected) {
-        console.log("Disconnected → reconnecting...");
-        setTimeout(connectToVoice, 3000);
-      }
-    });
-
-  } catch (err) {
-    console.error("Voice connect error:", err);
-    setTimeout(connectToVoice, 5000);
-  }
-}
-
+/*
+READY
+*/
 client.once("ready", async () => {
-  console.log(`${client.user.tag} aktif!`);
+    console.log(`${client.user.tag} aktif`);
 
-  await connectToVoice();
+    try {
+        const guild = await client.guilds.fetch(process.env.GUILD_ID);
 
-  // :repeat: sürekli kontrol (keep-alive + auto-fix)
-  reconnectInterval = setInterval(() => {
-    const vc = getVoiceConnection(process.env.GUILD_ID);
+        const channel = await guild.channels.fetch(
+            process.env.VOICE_CHANNEL_ID
+        );
 
-    if (!vc || vc.state.status === "disconnected") {
-      console.log("Voice yok → yeniden bağlanılıyor");
-      connectToVoice();
+        if (!channel) {
+            return console.log("Ses kanalı bulunamadı");
+        }
+
+        const connection = joinVoiceChannel({
+            channelId: channel.id,
+            guildId: guild.id,
+            adapterCreator: guild.voiceAdapterCreator,
+            selfDeaf: false,
+            selfMute: false
+        });
+
+        await entersState(connection, VoiceConnectionStatus.Ready, 30000);
+
+        console.log("Ses kanalına bağlandı");
+
+    } catch (err) {
+        console.log(err);
     }
-  }, 30000);
 });
 
-// CRASH SAFE
-process.on("unhandledRejection", (err) => {
-  console.error("Unhandled:", err);
-});
-
-process.on("SIGINT", () => {
-  if (reconnectInterval) clearInterval(reconnectInterval);
-  const vc = getVoiceConnection(process.env.GUILD_ID);
-  if (vc) vc.destroy();
-  process.exit(0);
-});
-
-process.on("SIGTERM", () => {
-  if (reconnectInterval) clearInterval(reconnectInterval);
-  const vc = getVoiceConnection(process.env.GUILD_ID);
-  if (vc) vc.destroy();
-  process.exit(0);
-});
-
+/*
+LOGIN
+*/
 client.login(process.env.BOT_TOKEN);
